@@ -17,6 +17,7 @@ Bossa Nova
 Chamber Jazz
 Cinematic Classical
 Cloud Rap
+Conscious Hip-Hop
 Deep Soul
 Digital Fusion
 Disco
@@ -41,6 +42,7 @@ Hard Bop
 Hard Rock
 Hardcore Hip-Hop
 Heavy Metal
+Hip-Hop
 Horrorcore
 IDM
 Indietronica

@@ -18,7 +18,7 @@ with open('genres.txt', 'r') as file:
 
 ### finds albums that require the metadata changes
 # i.e. doesnt have genre or year 
-all_files = glob.glob('C:/Users/Mark/Downloads/delete me/*')
+all_files = glob.glob('D:/Spotify Songs/all_songs/*')
 
 albums_to_edit = []
 
