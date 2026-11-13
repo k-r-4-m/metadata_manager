@@ -1,37 +1,91 @@
-from mutagen.mp3 import MP3  
-from mutagen.easyid3 import EasyID3  
-import mutagen.id3  
-from mutagen.id3 import ID3, TIT2, TIT3, TALB, TPE1, TRCK, TYER
+
+from mutagen.mp3 import MP3
+from mutagen.easyid3 import EasyID3
+from mutagen.id3 import ID3
 from PIL import Image, ImageTk
 from io import BytesIO
 import tkinter as tk
 from tkinter import ttk
-import glob  
-import numpy as np
-from numpy import loadtxt
-
-with open('genres.txt', 'r') as file:
-    # get list of all genres in saved file
-    lines = file.readlines()
+import glob
+import os
 
 # makes 'year' a writable tag
 EasyID3.RegisterTextKey('year', 'TDRC')
 
-# set up GUI first
+# loads genres
+with open('genres.txt', 'r') as file:
+    lines = [line.strip() for line in file.readlines()]
+
+### finds albums that require the metadata changes
+# i.e. doesnt have genre or year 
+all_files = glob.glob('C:/Users/Mark/Downloads/delete me/*')
+
+albums_to_edit = []
+
+for artist_folder in all_files:
+
+    artist_name = os.path.basename(artist_folder)
+
+    artist_albums = glob.glob(artist_folder + "/*")
+
+    for album_folder in artist_albums:
+
+        album_name = os.path.basename(album_folder)
+
+        album_songs = glob.glob(album_folder + "/*.mp3")
+
+        # check whether any songs need metadata
+        needs_editing = False
+
+        for song in album_songs:
+            mp3file = MP3(song, ID3=EasyID3)
+
+            if mp3file.get('genre') is None or mp3file.get('year') is None:
+                needs_editing = True
+                break
+
+        if needs_editing and album_songs:
+
+            # Extract album artwork
+            tags = ID3(album_songs[0])
+            artwork = tags.getall("APIC")
+
+            artwork_data = artwork[0].data if artwork else None
+
+            albums_to_edit.append({
+                'artist': artist_name,
+                'album': album_name,
+                'songs': album_songs,
+                'artwork': artwork_data
+            })
+
+
+### GUI setup
 root = tk.Tk()
-width = root.winfo_screenwidth()               
-height= root.winfo_screenheight()               
-root.geometry("%dx%d" % (width, height))
 
-label = tk.Label(root, text="Select Genre:")
-label.pack()
+width = root.winfo_screenwidth()
+height = root.winfo_screenheight()
 
-# controls selection for combobox
-def select(event):
-    selected_item = combo_box.get()
-    # label.config(text="Selected Item: " + selected_item)
+root.geometry(f"{width}x{height}")
 
-# Create a Combobox widget
+current_album = 0
+
+# album information
+song_label = tk.Label(root, text="")
+artist_label = tk.Label(root, text="")
+album_label = tk.Label(root, text="")
+
+song_label.pack()
+artist_label.pack()
+album_label.pack()
+
+# artwork display
+artwork_label = tk.Label(root)
+artwork_label.pack()
+
+# genre selection
+tk.Label(root, text="Select Genre:").pack()
+
 combo_box = ttk.Combobox(
     root,
     values=lines,
@@ -39,90 +93,134 @@ combo_box = ttk.Combobox(
 )
 combo_box.pack(pady=5)
 
-combo_box.set("")
+# custom genre
+tk.Label(root, text="Enter Genre Instead:").pack()
 
-combo_box.bind("<<ComboboxSelected>>", select)
+entry1 = tk.Entry(root)
+entry1.pack()
 
-tk.Label(root, text="Enter Genre Instead").pack()
-entry1 = tk.Entry(root).pack()
+# year selection
+tk.Label(root, text="Enter Year:").pack()
 
-button = tk.Button(root, text="Submit Genre", width=25, command=root.destroy)
-button.pack()
+entry2 = tk.Entry(root)
+entry2.pack()
 
-tk.Label(root, text="Enter Year").pack()
-entry2 = tk.Entry(root).pack()
+# progress indicator
+progress_label = tk.Label(root, text="")
+progress_label.pack()
 
-button2 = tk.Button(root, text="Submit Year", width=25, command=root.destroy)
-button2.pack()
 
-# show the user the song name, artist, and album
-song_label = tk.Label(root, text="")
-artist_label = tk.Label(root, text="")
-album_label = tk.Label(root, text="")
-song_label.pack()
-artist_label.pack()
-album_label.pack()
+### displays current album
+def show_album():
 
-# all_files = glob.glob("D:/Spotify Songs/all_songs/*")
+    global current_album, album_art
 
-all_files = glob.glob('C:/Users/Mark/Downloads/delete me/*')
+    if current_album >= len(albums_to_edit):
+        song_label.config(text="All albums completed!")
+        artist_label.config(text="")
+        album_label.config(text="")
+        artwork_label.config(image="")
+        progress_label.config(text="")
+        return
 
-# for each artist in the source dir...
-for i in np.arange(0, len(all_files)):
-    artist_name = all_files[i].split('\\')[-1]
+    album = albums_to_edit[current_album]
 
-    # gets list of albums per artist
-    artist_albums = glob.glob(all_files[i] + "/*")
+    artist_name = album['artist']
+    album_name = album['album']
+    album_songs = album['songs']
 
-    # for each album per artist...
-    for j in np.arange(0, len(artist_albums)):
-        album_name = artist_albums[i].split('\\')[-1]
+    # Display album information
+    song_label.config(text=f"Number of songs: {len(album_songs)}")
+    artist_label.config(text=f"Artist: {artist_name}")
+    album_label.config(text=f"Album: {album_name}")
 
-        # gets list of all songs in this artist's (i's) album
-        album_songs = glob.glob(artist_albums[j] + "/*.mp3")
+    progress_label.config(
+        text=f"Album {current_album + 1} of {len(albums_to_edit)}"
+    )
 
-        # basic flag that flips if artwork has been shown
-        # only need to show artwork once
-        artwork_shown = False
+    # display album artwork
+    if album['artwork']:
 
-        # for each song in this album...
-        for k in np.arange(0, len(album_songs)):
-            song_name = album_songs[i].split('\\')[-1]
+        image = Image.open(BytesIO(album['artwork']))
+        image.thumbnail((250, 250))
 
-            # using easyID3 for basic tags
-            mp3file = MP3(album_songs[k], ID3=EasyID3)
+        album_art = ImageTk.PhotoImage(image)
 
-            # if year or genre is missing, show them to the user for editing
-            if mp3file.get('genre') is None or mp3file.get('year') is None:
-                song_label['text'] = f"Song File Name: {song_name}"
-                artist_label['text'] = f"Artist Name: {artist_name}"
-                album_label['text'] = f"Album Name: {album_name}"
-                                
-                # need to load full ID3 tags to access album artwork
-                tags = ID3(album_songs[k])
+        artwork_label.config(image=album_art)
+        artwork_label.image = album_art
 
-                artwork = tags.getall("APIC")
+    else:
+        artwork_label.config(image="")
+        artwork_label.image = None
 
-                if artwork and not artwork_shown:
-                    image = Image.open(BytesIO(artwork[0].data))
-                    image = image.resize((250, 250))
+    # clear previous inputs
+    combo_box.set("")
+    entry1.delete(0, tk.END)
+    entry2.delete(0, tk.END)
 
-                    album_art = ImageTk.PhotoImage(image)
 
-                    artwork_label = tk.Label(root, image=album_art)
-                    artwork_label.pack()
+### saves metadata and moves onto next album
+def submit_metadata():
 
-                    # Prevent Python from garbage collecting the image
-                    artwork_label.image = album_art
-                    artwork_shown = True
+    global current_album
 
-                # mp3file['genre'] = ['Instrumental Hip-Hop']
-                # mp3file['year'] = ['2020']
+    if current_album >= len(albums_to_edit):
+        return
 
-            mp3file.save()
+    # get selected genre or custom genre
+    genre = entry1.get().strip()
 
-        # this album is done, can show artwork again for next album
-        artwork_shown = False
+    if not genre:
+        genre = combo_box.get().strip()
 
+    year = entry2.get().strip()
+
+    # validate inputs
+    if not genre or not year:
+        print("Please enter a genre and year.")
+        return
+
+    if not year.isdigit() or len(year) != 4:
+        print("Please enter a valid four-digit year.")
+        return
+
+    album = albums_to_edit[current_album]
+
+    # apply metadata to every song in the album
+    for song in album['songs']:
+
+        mp3file = MP3(song, ID3=EasyID3)
+
+        # only fill missing metadata
+        if mp3file.get('genre') is None:
+            mp3file['genre'] = [genre]
+
+        if mp3file.get('year') is None:
+            mp3file['year'] = [year]
+
+        mp3file.save()
+
+    print(f"Saved metadata for {album['album']}")
+
+    # move to next album
+    current_album += 1
+
+    show_album()
+
+
+# submit button
+submit_button = tk.Button(
+    root,
+    text="Submit Metadata",
+    width=25,
+    command=submit_metadata
+)
+submit_button.pack(pady=10)
+
+### starts the mainloop
+if albums_to_edit:
+    show_album()
+else:
+    song_label.config(text="No albums require metadata editing.")
 
 root.mainloop()
