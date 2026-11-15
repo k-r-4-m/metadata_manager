@@ -6,6 +6,7 @@ from io import BytesIO
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
+from tkinter import StringVar
 import glob
 import os
 import winsound
@@ -25,11 +26,11 @@ current_album = 0
 
 # allow user to select a directory and store it in global var
 # called folder_path
-def browse_button():
+def browse_button(controller):
     global folder_path
     folder_path = filedialog.askdirectory()
     print(folder_path)
-
+    controller.source_dir_label.set(folder_path)
 
 ### GUI tkinter setup
 class tkinterApp(tk.Tk):
@@ -52,6 +53,8 @@ class tkinterApp(tk.Tk):
  
         # initializing frames to an empty array
         self.frames = {}  
+
+        self.source_dir_label = StringVar()
  
         # iterating through a tuple consisting
         # of the different page layouts
@@ -88,17 +91,17 @@ class BrowseSourceDirPage(tk.Frame):
         
         # label of frame Layout 2
         label = ttk.Label(self, text ="Select source directory for music files")
-        
-        # putting the grid in its place by using
-        # grid
         label.pack()
 
         # button to find source dir for music
-        button2 = ttk.Button(self, text="Browse", command=browse_button)
-        button2.pack()
- 
-        button1 = ttk.Button(self, text ="Continue", command=lambda: controller.show_frame(Page1))
+        button1 = ttk.Button(self, text="Browse", command=lambda: browse_button(controller))
         button1.pack()
+
+        label2 = ttk.Label(self, textvariable=controller.source_dir_label)
+        label2.pack()
+ 
+        button2 = ttk.Button(self, text ="Continue", command=lambda: controller.show_frame(Page1))
+        button2.pack()
  
  
 # page for doing actual metadata editing
